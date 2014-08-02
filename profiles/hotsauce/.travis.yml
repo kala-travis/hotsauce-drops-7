@@ -9,7 +9,10 @@ mysql:
   encoding: utf8
 
 env:
-  - UPGRADE=7.x-1.x-dev
+  matrix:
+    - UPGRADE=7.x-1.x-dev
+  global:
+    secure: Jc9tSi/yf5qy1Bz0NipXxixXFYMgksorzHReDLGoeSRGG/5aCO2Py1/SQko6Y6YzR0fvuByWXFM8T8Ob0+soeC26CnLygARm50h4Px5vv9iW0RUd0jkmMqMz67fIrAOptfp1lbHe2m9Xe91XhBDTcF6HhdXXKc71y5WsRAawoPA=
 
 matrix:
   fast_finish: true
@@ -85,6 +88,12 @@ install:
   - echo sendmail_path=`which true` >> ~/.phpenv/versions/$(phpenv version-name)/etc/php.ini
 
 before_script:
+  # Configure GIT
+  - git config --global user.email "travis@kalamuna.com"
+  - git config --global user.name "Travis-CI"
+
+  # Expand max_nesting_level to prevent error
+  - phpenv config-add drupal/profiles/hotsauce/travis.php.ini
 
   # Do the site install
   - cd drupal
@@ -97,10 +106,25 @@ before_script:
   - SERVER_PID=$!
   - sleep 3
 
+script:
+  # Just don't run the default PhpUnit tests
+  - cat /dev/null
+
 after_script:
 
   # Stop the webserver so that it's not still running when MySQL is stopped.
   - kill $SERVER_PID
+
+after_success:
+  - cd ..
+  - git clone https://github.com/kala-travis/hotsauce-drops-7.git hotdrops
+  - cp -fR drupal/* hotdrops
+  - cd hotdrops
+  - git config --global credential.helper "store --file=.git/credentials"
+  - echo "https://${GH_TOKEN}:@github.com" > .git/credentials
+  - git add --all
+  - git commit -m "Successful build"
+  - git push
 
 notifications:
   email:
